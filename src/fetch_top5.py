@@ -92,8 +92,8 @@ For each selected story, write Instagram card copy in this exact JSON format:
   "cards": [
     {{
       "headline": "Short punchy headline, max 8 words",
-      "summary": "Exactly 2 short sentences only. What happened. No more than 30 words total.",
-      "insight": "Exactly 2 short sentences only. A sharp perspective on why it matters for everyday people. No more than 30 words total.",
+      "summary": "Exactly 2 short sentences only. Summary of what happened. No more than 30 words total.",
+      "insight": "Exactly 2 short sentences only. A sharp perspective and why it matters for everyday people. No more than 30 words total.",
       "source": "Publication name only"
     }}
   ]

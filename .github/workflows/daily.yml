@@ -5,6 +5,9 @@ on:
     - cron: '0 1 * * *'  # 1am UTC = 9am SGT
   workflow_dispatch:       # allow manual trigger from GitHub UI
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   run-digest:
     runs-on: ubuntu-latest
