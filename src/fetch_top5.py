@@ -29,7 +29,8 @@ def fetch_todays_articles():
             if hasattr(entry, "published_parsed") and entry.published_parsed:
                 published = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc).astimezone(SGT).date()
 
-            if published is None or published == today:
+            yesterday = (datetime.now(SGT) - timedelta(days=1)).date()
+            if published is None or published == today or published == yesterday:
                 articles.append({
                     "title": entry.get("title", "No title"),
                     "summary": entry.get("summary", "")[:500],
@@ -38,8 +39,26 @@ def fetch_todays_articles():
                     "published": str(published) if published else "unknown"
                 })
 
-    print(f"Fetched {len(articles)} articles from ({today})")
+    print(f"Fetched {len(articles)} articles from today ({today})")
     return articles
+
+
+# --- Seen stories log ---
+SEEN_LOG = "seen_stories.json"
+
+def load_seen():
+    if os.path.exists(SEEN_LOG):
+        with open(SEEN_LOG, "r") as f:
+            return set(json.load(f))
+    return set()
+
+def save_seen(headlines):
+    existing = load_seen()
+    updated = list(existing | set(headlines))
+    # Keep only last 50 to avoid unbounded growth
+    updated = updated[-50:]
+    with open(SEEN_LOG, "w") as f:
+        json.dump(updated, f, indent=2)
 
 
 # --- Step 2: Gemini picks Top 5 ---
@@ -47,6 +66,15 @@ def select_top5(articles):
     if not articles:
         print("No articles found for today.")
         return []
+
+    # Filter out already-seen stories
+    seen = load_seen()
+    fresh = [a for a in articles if a["title"] not in seen]
+    print(f"After dedup: {len(fresh)} fresh articles (filtered {len(articles) - len(fresh)} seen)")
+    if not fresh:
+        print("All articles already seen. Nothing to send.")
+        return []
+    articles = fresh
 
     client = genai.Client(api_key=GEMINI_API_KEY)
 
@@ -64,8 +92,8 @@ For each selected story, write Instagram card copy in this exact JSON format:
   "cards": [
     {{
       "headline": "Short punchy headline, max 8 words",
-      "summary": "1 sentence. What happened and why it matters.",
-      "insight": "1 sentence. A sharp perspective on what it means for everyday people.",
+      "summary": "Exactly 2 short sentences only. What happened. No more than 30 words total.",
+      "insight": "Exactly 2 short sentences only. A sharp perspective on why it matters for everyday people. No more than 30 words total.",
       "source": "Publication name only"
     }}
   ]
@@ -94,6 +122,10 @@ Articles:
     parsed = json.loads(raw)
     cards = parsed.get("cards", [])[:5]
     print(f"Gemini selected {len(cards)} cards")
+
+    # Mark selected headlines as seen
+    save_seen([c["headline"] for c in cards])
+
     return cards
 
 
@@ -107,7 +139,7 @@ if __name__ == "__main__":
         print(f"\nCard {i+1}:")
         print(f"  Headline : {card['headline']}")
         print(f"  Summary  : {card['summary']}")
-        print(f"  What it means  : {card['insight']}")
+        print(f"  Insight  : {card['insight']}")
         print(f"  Source   : {card['source']}")
 
     with open("top5_cards.json", "w") as f:

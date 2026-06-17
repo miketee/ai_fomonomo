@@ -1,1 +1,32 @@
-[]
+[
+  {
+    "headline": "Android 17 Boosts AI, Multitasking Features",
+    "summary": "Google launched Android 17 and Wear OS 7, enhancing multitasking and security. The update also brings Google's latest AI models to Pixel devices.",
+    "insight": "Your phone just got smarter and more efficient with new AI features. Expect smoother daily tasks and updated smartwatches.",
+    "source": "TechCrunch"
+  },
+  {
+    "headline": "Consumers Distrust 'AI' in Brand Messaging",
+    "summary": "A new survey reveals 60% of US consumers dislike \"AI\" in brand communication. This suggests public skepticism despite companies' push for AI search.",
+    "insight": "Brands using \"AI\" risk turning off potential customers. People prefer genuine human interaction, not an obvious AI touch.",
+    "source": "TechCrunch"
+  },
+  {
+    "headline": "ChatGPT Market Share Drops Below 50%",
+    "summary": "ChatGPT's global market share has fallen below 50% for the first time. It remains popular, but rivals like Gemini and Claude are gaining ground.",
+    "insight": "The AI chatbot market is becoming fiercely competitive. More options mean better, more diverse AI tools for everyone to choose from.",
+    "source": "TechCrunch"
+  },
+  {
+    "headline": "Google's AI Ethics Sparks Graduation Protest",
+    "summary": "Google CEO Sundar Pichai faced boos and a walkout at Stanford over Google's defense contracts. AI's role in controversial government ties is sparking debate.",
+    "insight": "The ethical use of AI is a growing public concern. Big tech companies face increasing scrutiny over how their advanced AI is deployed globally.",
+    "source": "TechCrunch"
+  },
+  {
+    "headline": "Meta Integrates New AI Mode on Facebook",
+    "summary": "Meta rolled out new AI features on Facebook, leveraging public information across its platforms. This aims to boost user engagement in the AI race.",
+    "insight": "Your Facebook experience is changing with integrated AI. Expect more personalized content and interactions based on public data.",
+    "source": "TechCrunch"
+  }
+]
