@@ -1,9 +1,11 @@
 import feedparser
 import os
 import json
+import time
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 from google import genai
+from google.genai import errors as genai_errors  # Added for error handling
 
 load_dotenv()
 
@@ -31,9 +33,11 @@ def fetch_todays_articles():
 
             yesterday = (datetime.now(SGT) - timedelta(days=1)).date()
             if published is None or published == today or published == yesterday:
+                # OPTIMIZATION: Reduce text footprint right at ingestion (200 chars is plenty)
+                clean_summary = entry.get("summary", "")[:200].replace('\n', ' ').strip()
                 articles.append({
-                    "title": entry.get("title", "No title"),
-                    "summary": entry.get("summary", "")[:500],
+                    "title": entry.get("title", "No title").strip(),
+                    "summary": clean_summary,
                     "link": entry.get("link", ""),
                     "source": feed.feed.get("title", feed_url),
                     "published": str(published) if published else "unknown"
@@ -48,16 +52,17 @@ SEEN_LOG = "seen_stories.json"
 
 def load_seen():
     if os.path.exists(SEEN_LOG):
-        with open(SEEN_LOG, "r") as f:
+        # FIX: Explicitly enforce UTF-8 for Windows compatibility to prevent silent cp1252 corruption
+        with open(SEEN_LOG, "r", encoding="utf-8") as f:
             return set(json.load(f))
     return set()
 
 def save_seen(headlines):
     existing = load_seen()
     updated = list(existing | set(headlines))
-    # Keep only last 50 to avoid unbounded growth
     updated = updated[-50:]
-    with open(SEEN_LOG, "w") as f:
+    # FIX: Explicitly enforce UTF-8 for Windows compatibility
+    with open(SEEN_LOG, "w", encoding="utf-8") as f:
         json.dump(updated, f, indent=2)
 
 
@@ -74,13 +79,17 @@ def select_top5(articles):
     if not fresh:
         print("All articles already seen. Nothing to send.")
         return []
-    articles = fresh
+        
+    # OPTIMIZATION: Cap absolute maximum processing array size to protect TPM quota limits
+    articles = fresh[:12] 
+    if len(fresh) > 12:
+        print(f"Capping input payload from {len(fresh)} down to the top 12 items to save API tokens.")
 
     client = genai.Client(api_key=GEMINI_API_KEY)
 
     articles_text = ""
     for i, a in enumerate(articles):
-        articles_text += f"\n[{i+1}] Title: {a['title']}\nSource: {a['source']}\nSummary: {a['summary']}\nURL: {a['link']}\n"
+        articles_text += f"\n[{i+1}] Title: {a['title']}\nSource: {a['source']}\nSummary: {a['summary']}\n"
 
     prompt = f"""You are an AI news editor curating content for a general public Instagram account.
 
@@ -105,10 +114,25 @@ Articles:
 {articles_text}
 """
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
-    )
+    # OPTIMIZATION: Robust exponential backoff wrapper handling both 429 and 503 limits
+    last_error = None
+    response = None
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt
+            )
+            break
+        except (genai_errors.APIError, genai_errors.ServerError) as e:
+            last_error = e
+            # If hit by a 429 or 503, back off progressively (30s, 60s)
+            wait = 30 * (attempt + 1)
+            print(f"  API rate limit or server error encountered. Retrying in {wait}s (attempt {attempt + 1}/3)...")
+            time.sleep(wait)
+    else:
+        print("❌ All API retry validation attempts failed.")
+        raise last_error
 
     raw = response.text.strip()
 
@@ -142,6 +166,7 @@ if __name__ == "__main__":
         print(f"  Insight  : {card['insight']}")
         print(f"  Source   : {card['source']}")
 
-    with open("top5_cards.json", "w") as f:
+    # FIX: Explicitly enforce UTF-8 for Windows file writing compatibility
+    with open("top5_cards.json", "w", encoding="utf-8") as f:
         json.dump(cards, f, indent=2)
     print("\nSaved to top5_cards.json")
