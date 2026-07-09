@@ -73,6 +73,26 @@ def _cap_lines_with_ellipsis(lines, max_lines):
     return kept
 
 
+def fit_text_block(draw, text, max_width, max_lines, candidate_sizes, bold=False):
+    """Find the largest font size (from candidate_sizes, largest first) that fits `text`
+    within max_lines at max_width. Falls back to the smallest size + ellipsis truncation
+    only if the text genuinely doesn't fit even at the smallest size — this should be rare.
+    Returns (font, lines, size, line_height)."""
+    for size in candidate_sizes:
+        font = load_font(size, bold=bold)
+        lines = wrap_text(draw, text, font, max_width)
+        if len(lines) <= max_lines:
+            line_height = int(size * 1.37)
+            return font, lines, size, line_height
+
+    # Nothing fit even at the smallest size — last-resort truncation
+    smallest = candidate_sizes[-1]
+    font = load_font(smallest, bold=bold)
+    lines = _cap_lines_with_ellipsis(wrap_text(draw, text, font, max_width), max_lines)
+    line_height = int(smallest * 1.37)
+    return font, lines, smallest, line_height
+
+
 # --- Draw a single card ---
 def draw_card(card, index, total):
     img = Image.new("RGB", (WIDTH, HEIGHT), BG_COLOR)
@@ -83,7 +103,6 @@ def draw_card(card, index, total):
     f_brand_regular= load_font(32, bold=False)
     f_counter = load_font(32, bold=False)
     f_headline= load_font(64, bold=True)
-    f_body    = load_font(38, bold=False)
     f_label   = load_font(28, bold=True)
     f_source  = load_font(28, bold=False)
 
@@ -114,12 +133,14 @@ def draw_card(card, index, total):
         y += 78
     y += 16
 
-    # --- Summary (capped at 3 lines; ellipsis if truncated, so it can never overflow) ---
-    summary_lines = wrap_text(draw, card["summary"], f_body, inner_width)
-    summary_lines = _cap_lines_with_ellipsis(summary_lines, 3)
+    # --- Summary (auto-fits: shrinks font before ever truncating text) ---
+    BODY_SIZE_CANDIDATES = [38, 34, 30, 26]
+    f_summary, summary_lines, _, summary_line_height = fit_text_block(
+        draw, card["summary"], inner_width, max_lines=4, candidate_sizes=BODY_SIZE_CANDIDATES
+    )
     for line in summary_lines:
-        draw.text((PADDING, y), line, font=f_body, fill=WHITE_75)
-        y += 52
+        draw.text((PADDING, y), line, font=f_summary, fill=WHITE_75)
+        y += summary_line_height
     y += 24
 
     # --- Divider ---
@@ -130,12 +151,13 @@ def draw_card(card, index, total):
     draw.text((PADDING, y), "WHAT IT MEANS TO YOU", font=f_label, fill=ACCENT)
     y += 48
 
-    # --- Insight (capped at 3 lines; ellipsis if truncated, so it can never overflow) ---
-    insight_lines = wrap_text(draw, card["insight"], f_body, inner_width)
-    insight_lines = _cap_lines_with_ellipsis(insight_lines, 3)
+    # --- Insight (auto-fits: shrinks font before ever truncating text) ---
+    f_insight, insight_lines, _, insight_line_height = fit_text_block(
+        draw, card["insight"], inner_width, max_lines=4, candidate_sizes=BODY_SIZE_CANDIDATES
+    )
     for line in insight_lines:
-        draw.text((PADDING, y), line, font=f_body, fill=WHITE_75)
-        y += 52
+        draw.text((PADDING, y), line, font=f_insight, fill=WHITE_75)
+        y += insight_line_height
     y += 24
 
     # --- Bottom row: source only ---
