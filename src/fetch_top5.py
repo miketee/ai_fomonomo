@@ -50,20 +50,30 @@ def fetch_todays_articles():
 # --- Seen stories log ---
 SEEN_LOG = "seen_stories.json"
 
-def load_seen():
+def _load_seen_list():
+    """Returns the seen log as an ORDERED list (oldest first), as stored on disk."""
     if os.path.exists(SEEN_LOG):
         # FIX: Explicitly enforce UTF-8 for Windows compatibility to prevent silent cp1252 corruption
         with open(SEEN_LOG, "r", encoding="utf-8") as f:
-            return set(json.load(f))
-    return set()
+            return json.load(f)
+    return []
+
+def load_seen():
+    """Returns the seen log as a set, for fast membership checks (order doesn't matter here)."""
+    return set(_load_seen_list())
 
 def save_seen(headlines):
-    existing = load_seen()
-    updated = list(existing | set(headlines))
-    updated = updated[-50:]
+    # Preserve insertion order so the 50-item cap is a real FIFO trim (oldest dropped first),
+    # not an arbitrary subset — a plain set union has no defined order, so `list(set)[-50:]`
+    # was silently dropping random entries rather than the oldest ones.
+    existing = _load_seen_list()
+    existing_set = set(existing)
+    new_titles = [h for h in headlines if h not in existing_set]
+    combined = existing + new_titles
+    combined = combined[-200:]  # more headroom since stories can resurface in RSS feeds over ~2 days
     # FIX: Explicitly enforce UTF-8 for Windows compatibility
     with open(SEEN_LOG, "w", encoding="utf-8") as f:
-        json.dump(updated, f, indent=2)
+        json.dump(combined, f, indent=2)
 
 
 # --- Step 2: Gemini picks Top 5 ---
@@ -100,6 +110,7 @@ For each selected story, write Instagram card copy in this exact JSON format:
 {{
   "cards": [
     {{
+      "article_index": 1,
       "headline": "Short punchy headline, max 8 words",
       "summary": "Exactly 2 short sentences only. Summary of what happened. No more than 30 words total.",
       "insight": "Exactly 2 short sentences only. A sharp perspective and why it matters for everyday people. No more than 30 words total.",
@@ -107,6 +118,8 @@ For each selected story, write Instagram card copy in this exact JSON format:
     }}
   ]
 }}
+
+"article_index" must be the exact bracketed number (e.g. [3] -> 3) of the source article from the list below.
 
 Return ONLY valid JSON. No preamble, no markdown backticks.
 
@@ -147,8 +160,18 @@ Articles:
     cards = parsed.get("cards", [])[:5]
     print(f"Gemini selected {len(cards)} cards")
 
-    # Mark selected headlines as seen
-    save_seen([c["headline"] for c in cards])
+    # Mark selected ORIGINAL article titles as seen (not Gemini's rewritten headlines —
+    # those never match against fresh article titles on subsequent runs, so dedup silently
+    # never fires). article_index maps back to the numbered list we sent in the prompt.
+    selected_titles = []
+    for c in cards:
+        idx = c.get("article_index")
+        if isinstance(idx, int) and 1 <= idx <= len(articles):
+            selected_titles.append(articles[idx - 1]["title"])
+        else:
+            print(f"  Warning: card '{c.get('headline', '?')}' missing/invalid article_index — not marking as seen")
+
+    save_seen(selected_titles)
 
     return cards
 
