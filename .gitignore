@@ -4,6 +4,4 @@ src/backfill.py
 .env
 output/
 __pycache__/
-*.pycbackfill/ 
-seen_stories.json
-top5_cards.json
+*.pycbackfill/
