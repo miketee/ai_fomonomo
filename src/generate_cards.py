@@ -22,25 +22,24 @@ OUTPUT_DIR = "output"
 
 
 # --- Font loader ---
+# Bundled directly in the repo (assets/fonts/) so rendering is byte-identical on Windows,
+# macOS, and the Ubuntu GitHub Actions runner. Previously this fell back through system font
+# paths like "arial.ttf" — which resolves locally on Windows but silently fails on the CI
+# runner, meaning the cards you visually approved locally didn't match daily production output.
+FONT_DIR = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts")
+FONT_BOLD = os.path.join(FONT_DIR, "DejaVuSans-Bold.ttf")
+FONT_REGULAR = os.path.join(FONT_DIR, "DejaVuSans.ttf")
+
 def load_font(size, bold=False):
-    """Try system fonts, fall back to Pillow default."""
-    candidates_bold = [
-        "arialbd.ttf", "Arial Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/System/Library/Fonts/Helvetica.ttc",
-    ]
-    candidates_regular = [
-        "arial.ttf", "Arial.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/System/Library/Fonts/Helvetica.ttc",
-    ]
-    candidates = candidates_bold if bold else candidates_regular
-    for path in candidates:
-        try:
-            return ImageFont.truetype(path, size)
-        except (IOError, OSError):
-            continue
-    return ImageFont.load_default()
+    path = FONT_BOLD if bold else FONT_REGULAR
+    try:
+        return ImageFont.truetype(path, size)
+    except (IOError, OSError) as e:
+        raise FileNotFoundError(
+            f"Bundled font not found at {path}. Expected assets/fonts/ to contain "
+            f"DejaVuSans.ttf and DejaVuSans-Bold.ttf — check they were committed to the repo."
+        ) from e
+
 
 
 # --- Text wrapper ---
