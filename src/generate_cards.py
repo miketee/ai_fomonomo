@@ -62,6 +62,17 @@ def wrap_text(draw, text, font, max_width):
     return lines
 
 
+def _cap_lines_with_ellipsis(lines, max_lines):
+    """Truncate to max_lines, appending '...' to the last line if anything was cut.
+    This is the hard backstop: even if Gemini ignores the word-count instruction in the
+    prompt and returns unusually long text, rendered height is guaranteed bounded."""
+    if len(lines) <= max_lines:
+        return lines
+    kept = lines[:max_lines]
+    kept[-1] = kept[-1].rstrip() + "..."
+    return kept
+
+
 # --- Draw a single card ---
 def draw_card(card, index, total):
     img = Image.new("RGB", (WIDTH, HEIGHT), BG_COLOR)
@@ -103,8 +114,9 @@ def draw_card(card, index, total):
         y += 78
     y += 16
 
-    # --- Summary (max 4 lines to prevent overflow) ---
-    summary_lines = wrap_text(draw, card["summary"], f_body, inner_width)[:4]
+    # --- Summary (capped at 3 lines; ellipsis if truncated, so it can never overflow) ---
+    summary_lines = wrap_text(draw, card["summary"], f_body, inner_width)
+    summary_lines = _cap_lines_with_ellipsis(summary_lines, 3)
     for line in summary_lines:
         draw.text((PADDING, y), line, font=f_body, fill=WHITE_75)
         y += 52
@@ -118,15 +130,23 @@ def draw_card(card, index, total):
     draw.text((PADDING, y), "WHAT IT MEANS TO YOU", font=f_label, fill=ACCENT)
     y += 48
 
-    # --- Insight (max 3 lines to prevent overflow) ---
-    insight_lines = wrap_text(draw, card["insight"], f_body, inner_width)[:4]
+    # --- Insight (capped at 3 lines; ellipsis if truncated, so it can never overflow) ---
+    insight_lines = wrap_text(draw, card["insight"], f_body, inner_width)
+    insight_lines = _cap_lines_with_ellipsis(insight_lines, 3)
     for line in insight_lines:
         draw.text((PADDING, y), line, font=f_body, fill=WHITE_75)
         y += 52
     y += 24
 
     # --- Bottom row: source only ---
-    bottom_y = HEIGHT - PADDING - 36
+    # Dynamic, not fixed: takes whichever is LOWER between the standard bottom anchor
+    # (for short cards, keeps consistent visual balance) and the actual content end + gap
+    # (for long cards, guarantees the source line never collides with insight text).
+    # This was previously a fixed y-coordinate, which is what caused source text to
+    # overlap the last line of insight on cards with longer wrapped text (e.g. 3-line
+    # insight instead of 2).
+    standard_bottom_y = HEIGHT - PADDING - 36
+    bottom_y = max(standard_bottom_y, y + 20)
     draw.text((PADDING, bottom_y), f"Source: {card['source']}", font=f_source, fill=WHITE_40)
 
     return img
