@@ -1,0 +1,40 @@
+name: Prune Old Card Images
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'  # 2am UTC every Sunday
+  workflow_dispatch:
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history needed — we read per-file commit dates below
+
+      - name: Delete images older than 30 days
+        run: |
+          # NOTE: filesystem mtime is unreliable here — `actions/checkout` resets
+          # every file's mtime to checkout time, so `find -mtime` would never match
+          # anything. We use git's last-commit-date per file instead, which is
+          # the actual date the image was added.
+          THRESHOLD=$(date -d '30 days ago' +%s)
+          for f in docs/*.png; do
+            [ -e "$f" ] || continue
+            COMMIT_TS=$(git log -1 --format=%ct -- "$f")
+            if [ -n "$COMMIT_TS" ] && [ "$COMMIT_TS" -lt "$THRESHOLD" ]; then
+              echo "Deleting $f (last committed $(date -d @$COMMIT_TS))"
+              rm "$f"
+            fi
+          done
+
+      - name: Commit + push pruning
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/
+          git diff --staged --quiet || git commit -m "Prune images older than 30 days [skip ci]"
+          git push
