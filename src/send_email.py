@@ -15,7 +15,7 @@ GMAIL_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD")
 GMAIL_RECIPIENT= os.environ.get("GMAIL_RECIPIENT")
 SGT            = timezone(timedelta(hours=8))
 TODAY          = datetime.now(SGT).strftime("%d %b %Y")
-OUTPUT_DIR     = "output"
+OUTPUT_DIR     = "docs"
 
 
 def send_cards():
