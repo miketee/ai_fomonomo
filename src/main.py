@@ -10,6 +10,11 @@ from generate_cards import generate_cards
 from publish_instagram import publish_instagram_carousel, InstagramPublishError
 from send_failure_email import send_failure_email
 
+# Local scratch file used only to pass today's date string and run_id from
+# `prepare` to `publish` within the same workflow job — not committed to git.
+RUN_DATE_FILE = "run_date.txt"
+RUN_ID_FILE = "run_id.txt"
+
 
 def prepare():
     """Stage 1: fetch articles, select top 5, generate card images.
@@ -30,7 +35,14 @@ def prepare():
     print(f"Saved {len(cards)} cards to top5_cards.json\n")
 
     print("Step 2: Generating card images...")
-    generate_cards()
+    _, date_str, run_id = generate_cards()
+
+    # Persist the date + run_id used for filenames so `publish` uses the exact
+    # same values, guaranteeing filenames can never collide across runs.
+    with open(RUN_DATE_FILE, "w", encoding="utf-8") as f:
+        f.write(date_str)
+    with open(RUN_ID_FILE, "w", encoding="utf-8") as f:
+        f.write(run_id)
 
     print("\n=== Prepare done ===")
 
@@ -48,10 +60,17 @@ def publish():
         print("No cards to publish today. Skipping.")
         sys.exit(0)
 
-    image_filenames = [f"card_{i:02d}.png" for i in range(1, len(cards) + 1)]
+    with open(RUN_DATE_FILE, "r", encoding="utf-8") as f:
+        date_str = f.read().strip()
+    with open(RUN_ID_FILE, "r", encoding="utf-8") as f:
+        run_id = f.read().strip()
+
+    image_filenames = [
+        f"card_{i:02d}_{date_str}_{run_id}.png" for i in range(1, len(cards) + 1)
+    ]
 
     print(f"Publishing carousel with {len(cards)} cards...")
-    publish_instagram_carousel(cards, image_filenames)
+    publish_instagram_carousel(cards, image_filenames, date_str)
 
     print("\n=== Publish done ===")
 

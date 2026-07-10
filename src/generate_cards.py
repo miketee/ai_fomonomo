@@ -18,7 +18,7 @@ PADDING  = 90
 SGT      = timezone(timedelta(hours=8))
 TODAY    = datetime.now(SGT).strftime("%-d %b %Y") if os.name != "nt" else datetime.now(SGT).strftime("%d %b %Y").lstrip("0")
 
-OUTPUT_DIR = "docs"
+OUTPUT_DIR = "output"
 
 
 # --- Font loader ---
@@ -175,12 +175,24 @@ def draw_card(card, index, total):
 
 
 # --- Main ---
-def generate_cards(json_path="top5_cards.json"):
-    # Clear old cards first to avoid stale files being picked up
-    if os.path.exists(OUTPUT_DIR):
-        for old_file in os.listdir(OUTPUT_DIR):
-            if old_file.endswith(".png"):
-                os.remove(os.path.join(OUTPUT_DIR, old_file))
+def generate_cards(json_path="top5_cards.json", date_str=None, run_id=None):
+    """Generate card PNGs with unique-per-run filenames (e.g. card_01_20260711_5821093.png).
+
+    Filenames need to be unique per *execution*, not just per calendar day.
+    A date-only suffix still collides if the workflow runs more than once on
+    the same day (e.g. a manual re-trigger) — two different article
+    selections would render the same date text and the same filename, and
+    whichever push happened to be cached by GitHub Pages' CDN at the moment
+    Instagram fetched it would silently win, regardless of which run's
+    caption was actually built. GITHUB_RUN_ID (set automatically by GitHub
+    Actions, unique per workflow run) closes that gap. Falls back to a
+    wall-clock timestamp for local/non-Actions runs.
+    """
+    if date_str is None:
+        date_str = datetime.now(SGT).strftime("%Y%m%d")
+    if run_id is None:
+        run_id = os.environ.get("GITHUB_RUN_ID") or str(int(datetime.now(SGT).timestamp()))
+
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     with open(json_path, "r") as f:
@@ -191,13 +203,13 @@ def generate_cards(json_path="top5_cards.json"):
 
     for i, card in enumerate(cards, start=1):
         img = draw_card(card, i, total)
-        filename = f"{OUTPUT_DIR}/card_{i:02d}.png"
+        filename = f"{OUTPUT_DIR}/card_{i:02d}_{date_str}_{run_id}.png"
         img.save(filename, "PNG")
         print(f"Saved: {filename}")
         output_paths.append(filename)
 
     print(f"\nDone. {total} cards saved to /{OUTPUT_DIR}/")
-    return output_paths
+    return output_paths, date_str, run_id
 
 
 if __name__ == "__main__":

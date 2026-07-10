@@ -50,7 +50,7 @@ def _check_env():
         )
 
 
-def build_caption(cards):
+def build_caption(cards, date_str):
     """Build the IG caption: date + fixed intro line + numbered headlines.
 
     Saturday, 11 July 2026. Here are the top AI news you should know today:
@@ -58,8 +58,13 @@ def build_caption(cards):
     1. <headline 1>
     2. <headline 2>
     ...
+
+    date_str is the same YYYYMMDD string used for the image filenames —
+    passed in rather than recomputed here, so the caption date can never
+    drift from the filename date (e.g. right around a midnight boundary).
     """
-    today_str = datetime.now(SGT).strftime("%A, %d %B %Y")
+    date_obj = datetime.strptime(date_str, "%Y%m%d")
+    today_str = date_obj.strftime("%A, %d %B %Y")
     intro = f"{today_str}. Here are the top AI news you should know today:"
     lines = [intro, ""]
     for i, card in enumerate(cards, start=1):
@@ -184,14 +189,16 @@ def _publish_container(container_id):
     return data["id"]
 
 
-def publish_instagram_carousel(cards, image_filenames):
+def publish_instagram_carousel(cards, image_filenames, date_str):
     """
     Publish a single carousel post to Instagram containing all card images.
 
     Args:
         cards: list of card dicts (each with 'headline', used to build the caption)
-        image_filenames: list of filenames (e.g. ['card_01.png', ...]) already
-            committed to docs/ and live on GitHub Pages, in display order.
+        image_filenames: list of filenames (e.g. ['card_01_20260711.png', ...])
+            already committed to docs/ and live on GitHub Pages, in display order.
+        date_str: YYYYMMDD string, same one used to generate the filenames —
+            used for the caption's date line so it can't drift from the images.
 
     Returns:
         The published media id (str).
@@ -212,7 +219,7 @@ def publish_instagram_carousel(cards, image_filenames):
             f"Instagram carousels require 2-10 items, got {len(image_filenames)}."
         )
 
-    caption = build_caption(cards)
+    caption = build_caption(cards, date_str)
 
     # Step 0: confirm the images are actually live on GitHub Pages before
     # asking Instagram to fetch them
