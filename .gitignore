@@ -2,6 +2,5 @@ venv/
 backfill/
 src/backfill.py
 .env
-output/
 __pycache__/
 *.pycbackfill/
