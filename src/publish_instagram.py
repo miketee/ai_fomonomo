@@ -1,11 +1,14 @@
 import os
 import time
+from datetime import datetime, timezone, timedelta
 import requests
 
 # --- Config ---
 META_PAGE_ID = os.environ.get("META_PAGE_ID")
 META_IG_USER_ID = os.environ.get("META_IG_USER_ID")
 META_SYSTEM_USER_TOKEN = os.environ.get("META_SYSTEM_USER_TOKEN")
+
+SGT = timezone(timedelta(hours=8))
 
 GRAPH_API_VERSION = "v21.0"
 GRAPH_API_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
@@ -48,15 +51,17 @@ def _check_env():
 
 
 def build_caption(cards):
-    """Build the IG caption: fixed intro line + numbered headlines.
+    """Build the IG caption: date + fixed intro line + numbered headlines.
 
-    Top AI news you should know today:
+    Saturday, 11 July 2026. Here are the top AI news you should know today:
 
     1. <headline 1>
     2. <headline 2>
     ...
     """
-    lines = ["Top AI news you should know today:", ""]
+    today_str = datetime.now(SGT).strftime("%A, %d %B %Y")
+    intro = f"{today_str}. Here are the top AI news you should know today:"
+    lines = [intro, ""]
     for i, card in enumerate(cards, start=1):
         lines.append(f"{i}. {card['headline']}")
     return "\n".join(lines)
