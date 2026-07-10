@@ -4,3 +4,5 @@ src/backfill.py
 .env
 __pycache__/
 *.pycbackfill/
+run_id.txt
+run_date.txt
