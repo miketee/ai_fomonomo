@@ -18,7 +18,7 @@ PADDING  = 90
 SGT      = timezone(timedelta(hours=8))
 TODAY    = datetime.now(SGT).strftime("%-d %b %Y") if os.name != "nt" else datetime.now(SGT).strftime("%d %b %Y").lstrip("0")
 
-OUTPUT_DIR = "output"
+OUTPUT_DIR = "docs"
 
 
 # --- Font loader ---
