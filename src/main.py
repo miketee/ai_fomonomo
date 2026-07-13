@@ -16,6 +16,16 @@ RUN_DATE_FILE = "run_date.txt"
 RUN_ID_FILE = "run_id.txt"
 
 
+def _set_github_output(key, value):
+    """Write a step output so the workflow YAML can conditionally skip
+    downstream steps (e.g. 'nothing to publish today') instead of those
+    steps blindly running and crashing on missing files."""
+    gh_output_path = os.environ.get("GITHUB_OUTPUT")
+    if gh_output_path:
+        with open(gh_output_path, "a", encoding="utf-8") as f:
+            f.write(f"{key}={value}\n")
+
+
 def prepare():
     """Stage 1: fetch articles, select top 5, generate card images.
     Leaves docs/*.png and top5_cards.json ready for the workflow to
@@ -27,8 +37,11 @@ def prepare():
     cards = select_top5(articles)
 
     if not cards:
-        print("No cards generated. Aborting (not a failure — just nothing new today).")
+        print("No cards generated today (nothing fresh to post). Not a failure.")
+        _set_github_output("cards_found", "false")
         sys.exit(0)
+
+    _set_github_output("cards_found", "true")
 
     with open("top5_cards.json", "w", encoding="utf-8") as f:
         json.dump(cards, f, indent=2)

@@ -25,6 +25,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Prepare — fetch, select, generate cards
+        id: prepare
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GMAIL_SENDER: ${{ secrets.GMAIL_SENDER }}
@@ -33,6 +34,7 @@ jobs:
         run: python src/main.py prepare
 
       - name: Commit + push card images to docs/
+        if: steps.prepare.outputs.cards_found == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -41,6 +43,7 @@ jobs:
           git push
 
       - name: Publish — Instagram carousel
+        if: steps.prepare.outputs.cards_found == 'true'
         env:
           META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
           META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
@@ -51,6 +54,7 @@ jobs:
         run: python src/main.py publish
 
       - name: Commit seen_stories.json
+        if: steps.prepare.outputs.cards_found == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
