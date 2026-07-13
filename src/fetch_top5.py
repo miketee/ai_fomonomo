@@ -123,11 +123,44 @@ For each selected story, write Instagram card copy in this exact JSON format:
       "article_index": 1,
       "headline": "Short punchy headline, max 8 words",
       "summary": "Exactly 2 short sentences only. Summary of what happened. No more than 30 words total.",
-      "insight": "Exactly 2 short sentences only. A sharp perspective and why it matters for everyday people. No more than 30 words total.",
+      "insight": "ONE sharp sentence, max 15 words. See insight rules below.",
       "source": "Publication name only"
     }}
   ]
 }}
+
+AUDIENCE: Your reader already understands AI basics — they know what an LLM, inference, fine-tuning, and open-weights mean. Don't explain jargon or write for a beginner. But they're not a researcher either — they read AI news casually and want to understand where things fit in the bigger picture. Write like a sharp, well-informed friend explaining the significance to someone who follows the space but doesn't live in it. Confident and precise, not academic, not hype-y.
+
+INSIGHT FIELD RULES (read carefully — this is the most important part of the card):
+
+The insight must place this story in a LARGER CONTEXT the reader wouldn't get from the summary alone. Think like an analyst tracking trends over time and across the industry — not a person restating what just happened. Pick whichever of these three fits best:
+
+1. TREND OVER TIME — how does this compare to prior events, historically? ("The largest AI wearables investment since Oculus in 2022, suggesting sustained investor appetite for the category")
+2. ECOSYSTEM POSITIONING — how does this affect competitors, adjacent players, or the balance of power in the sector? ("Puts pressure on OpenAI's API pricing, since this is now free to self-host")
+3. STAKES — a concrete consequence for a specific named group, if genuinely non-obvious ("Devs relying on the old API have 90 days before it breaks")
+
+MANDATORY: NAME A SPECIFIC ANCHOR. Every insight must reference at least one specific, named thing outside this story — a company, product, event, or year (e.g. "Apple's on-device Siri shift", "since Oculus in 2022", "GDPR's precedent", "the 2023 open-source LLM wave"). An insight with no named anchor is automatically incomplete, no matter how smart it sounds. Vague phrases like "echoing tech's historical focus on niche solutions" or "accelerating broader innovation" are NOT anchors — they're abstract filler wearing analytical language. If you can't think of a specific, real anchor, use a hedged one ("similar in spirit to...", "echoes the pattern seen when...") rather than a vague one — a soft real comparison beats a confident vague one.
+
+CRITICAL RULE — DO NOT JUST REPEAT OR RE-DERIVE THE SUMMARY: This includes two failure modes:
+(a) Restating a number/fact already in the summary, even reworded.
+(b) Stating the obvious implication of the finding as if it were new context (e.g. if the summary says "accuracy drops on hard problems," writing "this affects its reliability for precision tasks" is NOT new information — it's the same fact in future tense). Either failure mode means: discard it and find real outside context instead.
+
+DRAWING ON OUTSIDE KNOWLEDGE: You should draw on your own general knowledge of AI industry history and prior events for TREND and ECOSYSTEM insights. This is expected and required — see MANDATORY ANCHOR rule above. However:
+- Facts about THIS story's own event (numbers, dates, entities) must come only from the summary provided. Never alter or invent details about what actually happened in this specific story.
+- If you are not fully confident a historical comparison is accurate, use soft framing ("one of the largest...", "among the first...", "echoes...") rather than stating it as a hard fact. A wrong confident claim is worse than a hedged true one.
+
+Hard rules:
+- Max 15 words.
+- BANNED WORDS: "huge", "massive", "game-changing", "significant", "exciting", "revolutionary", "big step", "democratizes", "accelerating innovation". If you catch yourself about to write one of these, stop and find the actual specific comparison instead.
+
+Example of a WEAK insight (no named anchor — do not write like this):
+Story: "A study found LLMs struggle with long division past 4 digits."
+Weak insight: "Impressive language AI doesn't guarantee fundamental arithmetic, impacting its reliability for precision tasks."
+(This is just the finding restated as a consequence — no named anchor, no outside context.)
+
+Example of a STRONG insight (named anchor, real outside context):
+Story: "Meta's new chip cuts cloud inference costs by 80%."
+Strong insight: "Mirrors Apple's shift to on-device Siri processing — on-device AI is becoming the industry's cost-control playbook."
 
 "article_index" must be the exact bracketed number (e.g. [3] -> 3) of the source article from the list below.
 
