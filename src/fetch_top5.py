@@ -26,6 +26,16 @@ def fetch_todays_articles():
 
     for feed_url in RSS_FEEDS:
         feed = feedparser.parse(feed_url)
+
+        # feedparser doesn't raise on network/parse failures — it silently
+        # sets bozo=True and returns zero entries. Without logging this,
+        # a fetch failure is indistinguishable from "genuinely no news
+        # today" in the output, which makes debugging a zero-article day
+        # a guessing game. Surface it explicitly instead.
+        if feed.bozo:
+            print(f"  WARNING: feed fetch issue for {feed_url}: {feed.bozo_exception}")
+        print(f"  {feed_url}: {len(feed.entries)} entries returned")
+
         for entry in feed.entries:
             published = None
             if hasattr(entry, "published_parsed") and entry.published_parsed:
