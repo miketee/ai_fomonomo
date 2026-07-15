@@ -149,6 +149,8 @@ DRAWING ON OUTSIDE KNOWLEDGE: You should draw on your own general knowledge of A
 - Facts about THIS story's own event (numbers, dates, entities) must come only from the summary provided. Never alter or invent details about what actually happened in this specific story.
 - If you are not fully confident a historical comparison is accurate, use soft framing ("one of the largest...", "among the first...", "echoes...") rather than stating it as a hard fact. A wrong confident claim is worse than a hedged true one.
 
+VARY YOUR PHRASING ACROSS ALL 5 CARDS: You are writing all 5 insights in this one response — treat them as a set, not 5 independent attempts. Do not use the same connector word or sentence structure more than once across the batch. Specifically avoid defaulting to "echoes," "mirrors," or "similar to" as your go-to comparison verb — these are fine to use ONCE if they're the best fit, but if you find yourself reaching for the same phrasing pattern on multiple cards, force yourself to restructure. Vary the actual sentence shape too: some insights can open with the comparison ("Like X in 2022, this..."), some with a flat declarative claim, some as a direct statement of consequence, some posing what's now different. Sameness of structure across cards is as much a failure as sameness of content — a reader scrolling through should not be able to predict the next card's sentence shape from the last one.
+
 Hard rules:
 - Max 15 words.
 - BANNED WORDS: "huge", "massive", "game-changing", "significant", "exciting", "revolutionary", "big step", "democratizes", "accelerating innovation". If you catch yourself about to write one of these, stop and find the actual specific comparison instead.
@@ -160,7 +162,7 @@ Weak insight: "Impressive language AI doesn't guarantee fundamental arithmetic, 
 
 Example of a STRONG insight (named anchor, real outside context):
 Story: "Meta's new chip cuts cloud inference costs by 80%."
-Strong insight: "Mirrors Apple's shift to on-device Siri processing — on-device AI is becoming the industry's cost-control playbook."
+Strong insight: "On-device AI is becoming the industry's cost-control playbook — Apple made the same bet with Siri."
 
 "article_index" must be the exact bracketed number (e.g. [3] -> 3) of the source article from the list below.
 
