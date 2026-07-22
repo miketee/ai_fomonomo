@@ -60,6 +60,45 @@ SAMPLE_ARTICLES = [
     },
 ]
 
+# Must match the shape names in the fetch_top5.py prompt's SENTENCE SHAPE list.
+# Kept here (not imported) so this test file has zero coupling to prompt
+# internals beyond the field name itself -- if you rename a shape in the
+# prompt, update this set too, or validation below will just flag it as
+# "unrecognized" rather than silently passing.
+VALID_SHAPES = {
+    "consequence_first",
+    "comparison_dash",
+    "question_lead",
+    "expect_forward",
+    "contrast_not_new",
+    "meat",
+}
+
+
+def _validate_shapes(cards):
+    """Flags two things worth catching before you read the copy closely:
+    1. A shape Gemini invented that isn't in the prompt's list (typo or drift)
+    2. The same shape reused across the batch (the whole point of tracking
+       this field -- silently defeats the "don't template every card" goal)
+    Returns a list of warning strings (empty if clean)."""
+    warnings = []
+    seen_shapes = {}
+    for i, c in enumerate(cards, start=1):
+        shape = c.get("insight_shape")
+        if not shape:
+            warnings.append(f"Card {i}: missing insight_shape field")
+        elif shape not in VALID_SHAPES:
+            warnings.append(f"Card {i}: unrecognized shape '{shape}'")
+        else:
+            seen_shapes.setdefault(shape, []).append(i)
+
+    for shape, card_indices in seen_shapes.items():
+        if len(card_indices) > 1:
+            warnings.append(
+                f"Shape '{shape}' reused across cards {card_indices} — should be unique per batch"
+            )
+    return warnings
+
 
 def main():
     # Back up the real seen log so this test run can't pollute production dedup.
@@ -82,10 +121,23 @@ def main():
         print(f"RESULT: {len(cards)} cards generated")
         print("=" * 60)
         for i, c in enumerate(cards, start=1):
+            insight = c.get('insight', '(missing)')
+            word_count = len(insight.split()) if insight != '(missing)' else 0
+            shape = c.get('insight_shape', '(missing)')
             print(f"\n[{i}] {c.get('headline', '(missing headline)')}")
             print(f"    Summary: {c.get('summary', '(missing)')}")
-            print(f"    Insight: {c.get('insight', '(missing)')}")
+            print(f"    Insight: {insight}  ({word_count} words) [{shape}]")
             print(f"    Source:  {c.get('source', '(missing)')}")
+
+        shape_warnings = _validate_shapes(cards)
+        print("\n" + "-" * 60)
+        if shape_warnings:
+            print("SHAPE CHECK: issues found")
+            for w in shape_warnings:
+                print(f"  ⚠ {w}")
+        else:
+            print("SHAPE CHECK: all 5 cards used distinct, recognized shapes ✓")
+        print("-" * 60)
 
     finally:
         if existed_before and backup_path and os.path.exists(backup_path):

@@ -27,11 +27,6 @@ def fetch_todays_articles():
     for feed_url in RSS_FEEDS:
         feed = feedparser.parse(feed_url)
 
-        # feedparser doesn't raise on network/parse failures — it silently
-        # sets bozo=True and returns zero entries. Without logging this,
-        # a fetch failure is indistinguishable from "genuinely no news
-        # today" in the output, which makes debugging a zero-article day
-        # a guessing game. Surface it explicitly instead.
         if feed.bozo:
             print(f"  WARNING: feed fetch issue for {feed_url}: {feed.bozo_exception}")
         print(f"  {feed_url}: {len(feed.entries)} entries returned")
@@ -43,7 +38,10 @@ def fetch_todays_articles():
 
             yesterday = (datetime.now(SGT) - timedelta(days=1)).date()
             if published is None or published == today or published == yesterday:
-                # OPTIMIZATION: Reduce text footprint right at ingestion (200 chars is plenty)
+                # NOTE: currently testing insight quality AS-IS against this 200-char cap.
+                # If "meat mode" (surfacing a specific technical detail from the article)
+                # comes back weak/generic in testing, this is the first thing to revisit --
+                # 200 chars of an RSS teaser may just not contain real specifics often enough.
                 clean_summary = entry.get("summary", "")[:200].replace('\n', ' ').strip()
                 articles.append({
                     "title": entry.get("title", "No title").strip(),
@@ -61,27 +59,20 @@ def fetch_todays_articles():
 SEEN_LOG = "seen_stories.json"
 
 def _load_seen_list():
-    """Returns the seen log as an ORDERED list (oldest first), as stored on disk."""
     if os.path.exists(SEEN_LOG):
-        # FIX: Explicitly enforce UTF-8 for Windows compatibility to prevent silent cp1252 corruption
         with open(SEEN_LOG, "r", encoding="utf-8") as f:
             return json.load(f)
     return []
 
 def load_seen():
-    """Returns the seen log as a set, for fast membership checks (order doesn't matter here)."""
     return set(_load_seen_list())
 
 def save_seen(headlines):
-    # Preserve insertion order so the 50-item cap is a real FIFO trim (oldest dropped first),
-    # not an arbitrary subset — a plain set union has no defined order, so `list(set)[-50:]`
-    # was silently dropping random entries rather than the oldest ones.
     existing = _load_seen_list()
     existing_set = set(existing)
     new_titles = [h for h in headlines if h not in existing_set]
     combined = existing + new_titles
-    combined = combined[-200:]  # more headroom since stories can resurface in RSS feeds over ~2 days
-    # FIX: Explicitly enforce UTF-8 for Windows compatibility
+    combined = combined[-200:]
     with open(SEEN_LOG, "w", encoding="utf-8") as f:
         json.dump(combined, f, indent=2)
 
@@ -92,16 +83,14 @@ def select_top5(articles):
         print("No articles found for today.")
         return []
 
-    # Filter out already-seen stories
     seen = load_seen()
     fresh = [a for a in articles if a["title"] not in seen]
     print(f"After dedup: {len(fresh)} fresh articles (filtered {len(articles) - len(fresh)} seen)")
     if not fresh:
         print("All articles already seen. Nothing to send.")
         return []
-        
-    # OPTIMIZATION: Cap absolute maximum processing array size to protect TPM quota limits
-    articles = fresh[:12] 
+
+    articles = fresh[:12]
     if len(fresh) > 12:
         print(f"Capping input payload from {len(fresh)} down to the top 12 items to save API tokens.")
 
@@ -124,6 +113,7 @@ For each selected story, write Instagram card copy in this exact JSON format:
       "headline": "Short punchy headline, max 8 words",
       "summary": "Exactly 2 short sentences only. Summary of what happened. No more than 30 words total.",
       "insight": "ONE sharp sentence, max 15 words. See insight rules below.",
+      "insight_shape": "One of: consequence_first, comparison_dash, question_lead, expect_forward, contrast_not_new, meat",
       "source": "Publication name only"
     }}
   ]
@@ -133,38 +123,55 @@ AUDIENCE: Your reader already understands AI basics — they know what an LLM, i
 
 INSIGHT FIELD RULES (read carefully — this is the most important part of the card):
 
-The insight must place this story in a LARGER CONTEXT the reader wouldn't get from the summary alone. Think like an analyst tracking trends over time and across the industry — not a person restating what just happened. Pick whichever of these three fits best:
+The insight answers ONE question: "what can the reader expect, going forward, because of this?" Not a restatement of what happened (that's the summary's job) — a forward-looking read on where this leads or fits into a pattern already in motion.
 
-1. TREND OVER TIME — how does this compare to prior events, historically? ("The largest AI wearables investment since Oculus in 2022, suggesting sustained investor appetite for the category")
-2. ECOSYSTEM POSITIONING — how does this affect competitors, adjacent players, or the balance of power in the sector? ("Puts pressure on OpenAI's API pricing, since this is now free to self-host")
-3. STAKES — a concrete consequence for a specific named group, if genuinely non-obvious ("Devs relying on the old API have 90 days before it breaks")
+There are TWO valid ways to answer this. Pick whichever the story actually supports — do not force the first one if the story doesn't have a real precedent:
 
-MANDATORY: NAME A SPECIFIC ANCHOR. Every insight must reference at least one specific, named thing outside this story — a company, product, event, or year (e.g. "Apple's on-device Siri shift", "since Oculus in 2022", "GDPR's precedent", "the 2023 open-source LLM wave"). An insight with no named anchor is automatically incomplete, no matter how smart it sounds. Vague phrases like "echoing tech's historical focus on niche solutions" or "accelerating broader innovation" are NOT anchors — they're abstract filler wearing analytical language. If you can't think of a specific, real anchor, use a hedged one ("similar in spirit to...", "echoes the pattern seen when...") rather than a vague one — a soft real comparison beats a confident vague one.
+MODE 1 — TREND (preferred when a real pattern exists):
+Describe a real pattern or shift already in motion. This can be EITHER:
+(a) A specific named anchor (a company, product, event, or year) — preferred when a genuinely strong one exists, since it's more concrete and memorable.
+Example: "Same boom-then-bust pattern as 2010s crypto mining — regulators were slow then too."
+(b) A real macro-level pattern with no single named example, when that's honestly the more accurate framing — not every trend needs a specific case to be true. BUT a macro-pattern claim MUST still include at least ONE of these three concrete anchors, or it doesn't count as (b) — it's filler wearing a trend costume:
+   - a specific time period ("2010s," "the last two years," "post-2022")
+   - a specific mechanism (the actual thing that changes — "jobs shift," "prices drop," "platforms add disclosure," not "adapt" or "evolve")
+   - a specific, non-generic consequence (something that would be false of most other tech stories, not true of nearly all of them)
+Example: "Like previous tech shifts, companies restructure for AI, meaning jobs will shift or disappear." — passes: has a concrete mechanism (jobs shift/disappear).
+Example that FAILS despite sounding similar: "Expect new security players to emerge tackling AI agent vulnerabilities." — no time period, the "mechanism" (new players emerge) is true of literally any funded startup in any category, and "tackling AI agent vulnerabilities" just repeats the story's own subject rather than adding a consequence. This is filler, not (b).
+Do NOT force a weak or generic named anchor just to satisfy (a) — a clear, true macro-pattern claim beats an unconvincing forced comparison. But (a) and (b) are NOT the same as empty filler — see the filler test below.
 
-CRITICAL RULE — DO NOT JUST REPEAT OR RE-DERIVE THE SUMMARY: This includes two failure modes:
-(a) Restating a number/fact already in the summary, even reworded.
-(b) Stating the obvious implication of the finding as if it were new context (e.g. if the summary says "accuracy drops on hard problems," writing "this affects its reliability for precision tasks" is NOT new information — it's the same fact in future tense). Either failure mode means: discard it and find real outside context instead.
+FILLER TEST (apply this even after checking the (b) requirements above): could this exact sentence be pasted onto almost any other tech story unchanged and still sound plausible? If yes, it's filler — rewrite it to say something specifically true of this kind of shift, not tech news in general. "Cybersecurity will face increasing pressure to adapt to sophisticated attacks" fails — it could follow almost any security story ever written, in any year, about any threat. "Remember cybersecurity's early high-profile breaches?" also fails — "early high-profile breaches" names nothing (which breach? what year?) and the follow-up ("model safety will likely define AI platform trust for years") is boilerplate that fits any AI-safety story whatsoever. "Companies restructure for AI, meaning jobs will shift or disappear" passes — specific mechanism, not a placeholder phrase.
 
-DRAWING ON OUTSIDE KNOWLEDGE: You should draw on your own general knowledge of AI industry history and prior events for TREND and ECOSYSTEM insights. This is expected and required — see MANDATORY ANCHOR rule above. However:
-- Facts about THIS story's own event (numbers, dates, entities) must come only from the summary provided. Never alter or invent details about what actually happened in this specific story.
-- If you are not fully confident a historical comparison is accurate, use soft framing ("one of the largest...", "among the first...", "echoes...") rather than stating it as a hard fact. A wrong confident claim is worse than a hedged true one.
+MODE 2 — MEAT (use when the story has no strong precedent — do NOT force a weak comparison just to have one):
+Surface the single sharpest, most specific technical or concrete detail about THIS story that got cut from the summary for space — a number, spec, or capability — and state its forward implication. The detail must come from the article summary provided below. Do NOT invent a number, spec, or capability that isn't in the source text — if the summary doesn't contain a usable specific, fall back to Mode 1 with a hedged anchor rather than making one up.
+Example (illustrative only — the real detail must come from the actual article): "Gemini 3.6 cuts token usage while improving context handling — a real efficiency jump."
 
-VARY YOUR PHRASING ACROSS ALL 5 CARDS: You are writing all 5 insights in this one response — treat them as a set, not 5 independent attempts. Do not use the same connector word or sentence structure more than once across the batch. Specifically avoid defaulting to "echoes," "mirrors," or "similar to" as your go-to comparison verb — these are fine to use ONCE if they're the best fit, but if you find yourself reaching for the same phrasing pattern on multiple cards, force yourself to restructure. Vary the actual sentence shape too: some insights can open with the comparison ("Like X in 2022, this..."), some with a flat declarative claim, some as a direct statement of consequence, some posing what's now different. Sameness of structure across cards is as much a failure as sameness of content — a reader scrolling through should not be able to predict the next card's sentence shape from the last one.
+BANNED IN BOTH MODES:
+- Advocacy or prescriptive language: no "should," "must," "need to address," "companies need to." State what IS happening or WILL likely happen — never what someone OUGHT to do about it. This is a news account, not an op-ed.
+- Normative judgment on contested, live political/policy questions (e.g. whether a sanctions policy was a good idea, whether a country "benefited"). Describe the pattern; do not grade it. If the story touches active geopolitics, stay descriptive: name the parallel, not the verdict.
+- Restating a number/fact already in the summary, even reworded.
+- Restating the obvious implication of the finding as if it were new (e.g. if the summary says "accuracy drops on hard problems," writing "this affects its reliability" is the same fact in future tense — discard it).
+- Vague filler with no real specific behind it: "growing concerns," "sustainability challenges," "accelerating innovation," "significant implications." If you can't name the actual thing, don't gesture at it.
+- BANNED WORDS, including any variant/inflection of them (e.g. "significant" AND "significantly" AND "significance" are all banned, not just the exact string): "huge", "massive", "game-changing", "significant", "exciting", "revolutionary", "unprecedented", "big step", "democratizes", "accelerating innovation".
+- Do NOT start the insight with the word "This". It is the generic default and produces a templated batch even when the underlying content is good. Every shape below has its own required opener instead.
+
+CONFIDENCE: If you're not fully confident a historical comparison or forecast is accurate, hedge it ("echoes...", "if this follows a similar pattern...") rather than stating it as fact. A hedged true claim beats a confident wrong one.
+
+YEAR / DATE ACCURACY: If you name a specific year for a real historical event (e.g. "the 2019 Huawei ban"), you must be genuinely confident that year is correct — stating a wrong year as fact is worse than not naming one at all. If you are not fully certain of the exact year, either drop the year and describe the event without it ("the Huawei ban" instead of "the 2018 Huawei ban"), or hedge it ("around 2019") rather than stating a bare date with false confidence.
+
+SENTENCE SHAPE — ASSIGN EACH CARD A DIFFERENT ONE. THE OPENER IS MANDATORY, NOT A SUGGESTION:
+You are writing all 5 insights in one response. Assign each card a distinct shape from this list. Each shape has a REQUIRED literal opening pattern — the shape label alone does not satisfy the rule; the actual sentence must start the specified way, or the diversity requirement isn't really being met even if the label says otherwise. Do not reuse a shape across the batch of 5.
+- consequence_first: MUST open with the consequence itself, not "This" — e.g. start with "Power grids...", "Prices...", "Developers...", the affected thing/person as the subject. ("Power grids could strain the way they did during 2010s crypto-mining booms.")
+- comparison_dash: MUST open with "Same as..." or "Like [X]...". ("Same playbook as the 2019 Huawei ban — now aimed at models instead of hardware.")
+- question_lead: MUST open with a short question ending in "?". ("Remember Bard's rocky 2023 debut? This looks like déjà vu.")
+- expect_forward: MUST open with the word "Expect". ("Expect construction robotics to follow automotive manufacturing's curve: slow start, then fast scale.")
+- contrast_not_new: MUST open with "Not new" or "Not the first". ("Not new — YouTube's 2024 AI-label policy came from the same demand for authenticity.")
+- meat: open directly with the specific number/spec/capability itself as the subject, not "This". (e.g. "3B parameters running locally cuts...")
+
+REQUIRED FIELD — DO NOT SKIP: Every card MUST include a non-empty "insight_shape" field naming exactly which shape you used for that card, from the six names above (consequence_first, comparison_dash, question_lead, expect_forward, contrast_not_new, meat). This is not optional and not just internal bookkeeping — a card missing this field is treated as an invalid response. Fill it in for all 5 cards, with no repeats.
 
 Hard rules:
 - Max 15 words.
-- BANNED WORDS: "huge", "massive", "game-changing", "significant", "exciting", "revolutionary", "big step", "democratizes", "accelerating innovation". If you catch yourself about to write one of these, stop and find the actual specific comparison instead.
-
-Example of a WEAK insight (no named anchor — do not write like this):
-Story: "A study found LLMs struggle with long division past 4 digits."
-Weak insight: "Impressive language AI doesn't guarantee fundamental arithmetic, impacting its reliability for precision tasks."
-(This is just the finding restated as a consequence — no named anchor, no outside context.)
-
-Example of a STRONG insight (named anchor, real outside context):
-Story: "Meta's new chip cuts cloud inference costs by 80%."
-Strong insight: "On-device AI is becoming the industry's cost-control playbook — Apple made the same bet with Siri."
-
-"article_index" must be the exact bracketed number (e.g. [3] -> 3) of the source article from the list below.
+- "article_index" must be the exact bracketed number (e.g. [3] -> 3) of the source article from the list below.
 
 Return ONLY valid JSON. No preamble, no markdown backticks.
 
@@ -172,19 +179,17 @@ Articles:
 {articles_text}
 """
 
-    # OPTIMIZATION: Robust exponential backoff wrapper handling both 429 and 503 limits
     last_error = None
     response = None
     for attempt in range(3):
         try:
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3.6-flash",
                 contents=prompt
             )
             break
         except (genai_errors.APIError, genai_errors.ServerError) as e:
             last_error = e
-            # If hit by a 429 or 503, back off progressively (30s, 60s)
             wait = 30 * (attempt + 1)
             print(f"  API rate limit or server error encountered. Retrying in {wait}s (attempt {attempt + 1}/3)...")
             time.sleep(wait)
@@ -194,7 +199,6 @@ Articles:
 
     raw = response.text.strip()
 
-    # Strip markdown fences if present
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
@@ -205,9 +209,6 @@ Articles:
     cards = parsed.get("cards", [])[:5]
     print(f"Gemini selected {len(cards)} cards")
 
-    # Mark selected ORIGINAL article titles as seen (not Gemini's rewritten headlines —
-    # those never match against fresh article titles on subsequent runs, so dedup silently
-    # never fires). article_index maps back to the numbered list we sent in the prompt.
     selected_titles = []
     for c in cards:
         idx = c.get("article_index")
@@ -231,10 +232,9 @@ if __name__ == "__main__":
         print(f"\nCard {i+1}:")
         print(f"  Headline : {card['headline']}")
         print(f"  Summary  : {card['summary']}")
-        print(f"  Insight  : {card['insight']}")
+        print(f"  Insight  : {card['insight']}  [{card.get('insight_shape', '?')}]")
         print(f"  Source   : {card['source']}")
 
-    # FIX: Explicitly enforce UTF-8 for Windows file writing compatibility
     with open("top5_cards.json", "w", encoding="utf-8") as f:
         json.dump(cards, f, indent=2)
     print("\nSaved to top5_cards.json")
