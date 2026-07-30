@@ -130,7 +130,7 @@ There are TWO valid ways to answer this. Pick whichever the story actually suppo
 MODE 1 — TREND (preferred when a real pattern exists):
 Describe a real pattern or shift already in motion. This can be EITHER:
 (a) A specific named anchor (a company, product, event, or year) — preferred when a genuinely strong one exists, since it's more concrete and memorable.
-Example: "Same boom-then-bust pattern as 2010s crypto mining — regulators were slow then too."
+Example: "Same boom-then-bust pattern as 2010s crypto mining, regulators were slow then too."
 (b) A real macro-level pattern with no single named example, when that's honestly the more accurate framing — not every trend needs a specific case to be true. BUT a macro-pattern claim MUST still include at least ONE of these three concrete anchors, or it doesn't count as (b) — it's filler wearing a trend costume:
    - a specific time period ("2010s," "the last two years," "post-2022")
    - a specific mechanism (the actual thing that changes — "jobs shift," "prices drop," "platforms add disclosure," not "adapt" or "evolve")
@@ -143,7 +143,7 @@ FILLER TEST (apply this even after checking the (b) requirements above): could t
 
 MODE 2 — MEAT (use when the story has no strong precedent — do NOT force a weak comparison just to have one):
 Surface the single sharpest, most specific technical or concrete detail about THIS story that got cut from the summary for space — a number, spec, or capability — and state its forward implication. The detail must come from the article summary provided below. Do NOT invent a number, spec, or capability that isn't in the source text — if the summary doesn't contain a usable specific, fall back to Mode 1 with a hedged anchor rather than making one up.
-Example (illustrative only — the real detail must come from the actual article): "Gemini 3.6 cuts token usage while improving context handling — a real efficiency jump."
+Example (illustrative only, the real detail must come from the actual article): "Gemini 3.6 cuts token usage while improving context handling, a real efficiency jump."
 
 BANNED IN BOTH MODES:
 - Advocacy or prescriptive language: no "should," "must," "need to address," "companies need to." State what IS happening or WILL likely happen — never what someone OUGHT to do about it. This is a news account, not an op-ed.
@@ -161,11 +161,13 @@ YEAR / DATE ACCURACY: If you name a specific year for a real historical event (e
 SENTENCE SHAPE — ASSIGN EACH CARD A DIFFERENT ONE. THE OPENER IS MANDATORY, NOT A SUGGESTION:
 You are writing all 5 insights in one response. Assign each card a distinct shape from this list. Each shape has a REQUIRED literal opening pattern — the shape label alone does not satisfy the rule; the actual sentence must start the specified way, or the diversity requirement isn't really being met even if the label says otherwise. Do not reuse a shape across the batch of 5.
 - consequence_first: MUST open with the consequence itself, not "This" — e.g. start with "Power grids...", "Prices...", "Developers...", the affected thing/person as the subject. ("Power grids could strain the way they did during 2010s crypto-mining booms.")
-- comparison_dash: MUST open with "Same as..." or "Like [X]...". ("Same playbook as the 2019 Huawei ban — now aimed at models instead of hardware.")
+- comparison_dash: MUST open with "Same as..." or "Like [X]...". Do NOT use an em-dash or double-hyphen to join the two halves — use a comma or period instead. ("Same playbook as the 2019 Huawei ban, now aimed at models instead of hardware.")
 - question_lead: MUST open with a short question ending in "?". ("Remember Bard's rocky 2023 debut? This looks like déjà vu.")
 - expect_forward: MUST open with the word "Expect". ("Expect construction robotics to follow automotive manufacturing's curve: slow start, then fast scale.")
-- contrast_not_new: MUST open with "Not new" or "Not the first". ("Not new — YouTube's 2024 AI-label policy came from the same demand for authenticity.")
+- contrast_not_new: MUST open with "Not new" or "Not the first". Do NOT use an em-dash after it — use a colon or period. ("Not new: YouTube's 2024 AI-label policy came from the same demand for authenticity.")
 - meat: open directly with the specific number/spec/capability itself as the subject, not "This". (e.g. "3B parameters running locally cuts...")
+
+PUNCTUATION — WRITE LIKE A PERSON, NOT A MODEL: Do not use em-dashes (—) or double-hyphens (--) anywhere in the insight. This is one of the most recognizable "AI writing" tells and it undermines the account's voice. Use a comma, period, or colon instead — whichever reads most naturally. If a sentence only works with an em-dash, restructure it into two shorter clauses rather than reaching for the dash.
 
 REQUIRED FIELD — DO NOT SKIP: Every card MUST include a non-empty "insight_shape" field naming exactly which shape you used for that card, from the six names above (consequence_first, comparison_dash, question_lead, expect_forward, contrast_not_new, meat). This is not optional and not just internal bookkeeping — a card missing this field is treated as an invalid response. Fill it in for all 5 cards, with no repeats.
 
@@ -184,7 +186,7 @@ Articles:
     for attempt in range(3):
         try:
             response = client.models.generate_content(
-                model="gemini-3.6-flash",
+                model="gemini-2.5-flash",
                 contents=prompt
             )
             break
